@@ -17,7 +17,7 @@
 'use strict';
 
 var amqp = require('amqp');
-var msg = require('msg-util/msg-util').Message;
+var msg = require('msg-util').Message;
 var projectUtils = require('./lib/project-utils');
 var config = require('./config');
 var queue_name = 'project';
@@ -81,9 +81,8 @@ connection.on('ready', function () {
         projectUtils.createProject(cmd, function (error, stdout, stderr) {
           if (error){
             // Error notification
-            var errorMsg = 'Project creation failed, please try again!';
+            var errorMsg = 'Project creation failed, please try again! Error: ' + stderr;
             notificationJson.desc = errorMsg;
-            log.error(stderr);
             log.error(errorMsg);
             connection.exchange(exchangeName, exchangeOptions, function(exchange) {
               if (msg.isValid(notificationJson)){
