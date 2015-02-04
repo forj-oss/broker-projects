@@ -7,8 +7,8 @@
     "test": "grunt"
   },
   "keywords": [
-    "maestro api",
-    "maestroapi"
+    "project",
+    "rabbitmq"
   ],
   "author": "Omar Chavez",
   "license": "http://www.apache.org/licenses/LICENSE-2.0",
