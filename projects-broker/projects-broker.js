@@ -53,7 +53,8 @@ connection.on('ready', function () {
           level: payload.message.log.level,
           target: payload.message.log.target
         },
-        origin: payload.message.origin
+        origin: payload.message.origin,
+        time_stamp: payload.message.time_stamp
       };
 
       var notificationJson = {
@@ -69,7 +70,8 @@ connection.on('ready', function () {
           level: payload.message.log.level,
           target: payload.message.log.target
           },
-        origin: payload.message.origin
+        origin: payload.message.origin,
+        time_stamp: payload.message.time_stamp
       };
 
       var projectName = payload.message.action.ctx_data.name;
