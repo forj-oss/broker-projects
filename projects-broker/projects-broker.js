@@ -37,46 +37,57 @@ connection.on('ready', function () {
     log.info('Queue ' + queue.name + ' is open');
 
     queue.subscribe(function (payload, headers, deliveryInfo, messageObject) {
-    log.info('Got a message with routing key ' + deliveryInfo.routingKey);
-    log.info('messageObject timestamp:' + messageObject.timestamp);
+      log.info('Got a message with routing key ' + deliveryInfo.routingKey);
+      log.info('messageObject timestamp:' + messageObject.timestamp);
 
-      var payloadJson = {
-        ctx: deliveryInfo.routingKey,
-        name: payload.message.action.ctx_data.name,
-        desc: payload.message.action.ctx_data.description,
-        id: payload.message.site_id,
-        user: payload.message.ACL.user,
-        role: payload.message.ACL.role,
-        debug: payload.message.debug,
-        log: {
-          enable: payload.message.log.enable,
-          level: payload.message.log.level,
-          target: payload.message.log.target
-        },
-        origin: payload.message.origin,
-        time_stamp: payload.message.time_stamp
-      };
+      var payloadJson;  // Message comming from Rabbitmq
+      var notificationJson;  // Notification Message to be published
 
-      var notificationJson = {
-        ctx: 'notification.project.message',
-        name: payload.message.action.ctx_data.name,
-        desc: '',
-        id: payload.message.site_id,
-        user: payload.message.ACL.user,
-        role: payload.message.ACL.role,
-        debug: payload.message.debug,
-        log: {
-          enable: payload.message.log.enable,
-          level: payload.message.log.level,
-          target: payload.message.log.target
+      try{
+        payloadJson = {
+          ctx: deliveryInfo.routingKey,
+          name: payload.message.action.ctx_data.name,
+          desc: payload.message.action.ctx_data.description,
+          id: payload.message.site_id,
+          user: payload.message.ACL.user,
+          role: payload.message.ACL.role,
+          debug: payload.message.debug,
+          log: {
+            enable: payload.message.log.enable,
+            level: payload.message.log.level,
+            target: payload.message.log.target
           },
-        origin: payload.message.origin,
-        time_stamp: payload.message.time_stamp
-      };
+          origin: payload.message.origin,
+          time_stamp: payload.message.time_stamp
+        };
+      }catch(err) {
+        log.error(err);
+      }
+
+      try{
+        notificationJson = {
+          ctx: payload.message.action.ctx_data.name + '.project.notification',
+          name: payload.message.action.ctx_data.name,
+          desc: '',
+          id: payload.message.site_id,
+          user: payload.message.ACL.user,
+          role: payload.message.ACL.role,
+          debug: payload.message.debug,
+          log: {
+            enable: payload.message.log.enable,
+            level: payload.message.log.level,
+            target: payload.message.log.target
+            },
+          origin: payload.message.origin,
+          time_stamp: payload.message.time_stamp
+        };
+      }catch(err) {
+        log.error(err);
+      }
 
       var projectName = payload.message.action.ctx_data.name;
 
-      if (!msg.isValid(payloadJson)){
+      if (payloadJson && !msg.isValid(payloadJson)){
         log.error('Error, payload is not valid.');
       } else {
         var cmd = config.cmd + ' ' + projectName;
@@ -87,7 +98,7 @@ connection.on('ready', function () {
             notificationJson.desc = errorMsg;
             log.error(errorMsg);
             connection.exchange(exchangeName, exchangeOptions, function(exchange) {
-              if (msg.isValid(notificationJson)){
+              if (notificationJson && msg.isValid(notificationJson)){
                 exchange.publish(notificationJson.ctx, msg.getJSON(notificationJson));
               }else{
                 log.error('Error, notificationJson is not a valid json.');
@@ -100,7 +111,7 @@ connection.on('ready', function () {
             log.info(stdout);
             log.info(successMsg);
             connection.exchange(exchangeName, exchangeOptions, function(exchange) {
-              if (msg.isValid(notificationJson)){
+              if (notificationJson && msg.isValid(notificationJson)){
                 exchange.publish(notificationJson.ctx, msg.getJSON(notificationJson));
               }else{
                 log.error('Error, notificationJson is not a valid json.');
