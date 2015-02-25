@@ -15,6 +15,8 @@
 */
 var config = {
   cmd: '/bin/bash /var/lib/forj/newproject.sh',
+  notificationContext: 'new.project.notification',
+  successMsg: 'Project request created, please +2 the change on Gerrit.',
   connection: {
     host: 'localhost',
     port: 5672,

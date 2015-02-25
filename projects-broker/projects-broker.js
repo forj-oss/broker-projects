@@ -37,49 +37,34 @@ connection.on('ready', function () {
     log.info('Queue ' + queue.name + ' is open');
 
     queue.subscribe(function (payload, headers, deliveryInfo, messageObject) {
-      log.info('Got a message with routing key ' + deliveryInfo.routingKey);
-      log.info('messageObject timestamp:' + messageObject.timestamp);
+      log.info('Got a message with routing key: ' + deliveryInfo.routingKey);
+      log.info('messageObject timestamp: ' + messageObject.timestamp);
 
-      var payloadJson;  // Message comming from Rabbitmq
-      var notificationJson;  // Notification Message to be published
-
-      try{
-        payloadJson = {
-          ctx: deliveryInfo.routingKey,
-          name: payload.message.action.ctx_data.name,
-          desc: payload.message.action.ctx_data.description,
-          id: payload.message.site_id,
-          user: payload.message.ACL.user,
-          role: payload.message.ACL.role,
-          debug: payload.message.debug,
-          log: {
-            enable: payload.message.log.enable,
-            level: payload.message.log.level,
-            target: payload.message.log.target
-          },
-          origin: payload.message.origin,
-          time_stamp: payload.message.time_stamp
-        };
-      }catch(err) {
-        log.error(err);
-      }
-
+      var notificationJson = {};  // Notification Message to be published
       try{
         notificationJson = {
-          ctx: payload.message.action.ctx_data.name + '.project.notification',
-          name: payload.message.action.ctx_data.name,
-          desc: '',
-          id: payload.message.site_id,
-          user: payload.message.ACL.user,
-          role: payload.message.ACL.role,
-          debug: payload.message.debug,
-          log: {
-            enable: payload.message.log.enable,
-            level: payload.message.log.level,
-            target: payload.message.log.target
+          message: {  
+            action: {
+              context : config.notificationContext,
+              ctx_data: {
+                name : payload.message.action.ctx_data.name,
+                description: ''
+              }
             },
-          origin: payload.message.origin,
-          time_stamp: payload.message.time_stamp
+            ACL: {
+              user: payload.message.ACL.user,
+              role: payload.message.ACL.role
+            },
+            debug: payload.message.debug,
+            log: {
+              enable: payload.message.log.enable,
+              level: payload.message.log.level,
+              target: payload.message.log.target
+            },
+            origin: payload.message.origin,
+            site_id: payload.message.site_id,
+            time_stamp: payload.message.time_stamp
+          }
         };
       }catch(err) {
         log.error(err);
@@ -87,39 +72,36 @@ connection.on('ready', function () {
 
       var projectName = payload.message.action.ctx_data.name;
 
-      if (payloadJson && !msg.isValid(payloadJson)){
-        log.error('Error, payload is not valid.');
-      } else {
-        var cmd = config.cmd + ' ' + projectName;
-        projectUtils.createProject(cmd, function (error, stdout, stderr) {
-          if (error){
-            // Error notification
-            var errorMsg = 'Project creation failed, please try again! Error: ' + stderr;
-            notificationJson.desc = errorMsg;
-            log.error(errorMsg);
-            connection.exchange(exchangeName, exchangeOptions, function(exchange) {
-              if (notificationJson && msg.isValid(notificationJson)){
-                exchange.publish(notificationJson.ctx, msg.getJSON(notificationJson));
+      msg.isValid(payload, function (error){
+        if (error){
+          log.error(error);
+        }else{
+          var cmd = config.cmd + ' ' + projectName;
+          projectUtils.createProject(cmd, function (error, stdout, stderr) {
+            if (error){
+              // Error notification
+              var errorMsg = 'Project creation failed: ' + stderr;
+              notificationJson.message.action.ctx_data.description = errorMsg;
+              log.error(errorMsg);
+            }else{
+              // Success notification
+              notificationJson.message.action.ctx_data.description = config.successMsg;
+              log.info(stdout);
+              log.info(config.successMsg);
+            }
+            // Sending notification
+            msg.isValid(notificationJson, function (error){
+              if (error){
+                log.error(error);
               }else{
-                log.error('Error, notificationJson is not a valid json.');
+                connection.exchange(exchangeName, exchangeOptions, function(exchange) {
+                  exchange.publish(config.notificationContext, msg.getJSON(notificationJson));
+                });
               }
             });
-          }else{
-            // Success notification
-            var successMsg = 'Project request created, please +2 the change on Gerrit.';
-            notificationJson.desc = successMsg;
-            log.info(stdout);
-            log.info(successMsg);
-            connection.exchange(exchangeName, exchangeOptions, function(exchange) {
-              if (notificationJson && msg.isValid(notificationJson)){
-                exchange.publish(notificationJson.ctx, msg.getJSON(notificationJson));
-              }else{
-                log.error('Error, notificationJson is not a valid json.');
-              }
-            });
-          }
-        });
-      }
+          });
+        }
+      });
     });
   });
 });
